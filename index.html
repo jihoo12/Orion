@@ -1,14 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Document</title>
+  <title>MathJax Preview</title>
 </head>
+
 <body>
-  <div id="app">
-    \text{hello}
-  </div>
+  <div id="app"></div>
+
+  <form id="mathForm">
+    <textarea id="latexInput" rows="6"
+      style="width: 100%; max-width: 500px; font-family: monospace; padding: 10px;"></textarea>
+  </form>
+
   <script type="module" src="script.js"></script>
 </body>
+
 </html>
