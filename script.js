@@ -1,38 +1,117 @@
 import 'mathjax/es5/tex-svg.js';
 
-// MathJax 초기화 확인 함수
+// ── State ─────────────────────────────────────────────
+const statusDot  = document.getElementById('statusDot');
+const statusText = document.getElementById('statusText');
+const latexInput = document.getElementById('latexInput');
+const appEl      = document.getElementById('app');
+const emptyState = document.getElementById('emptyState');
+const clearBtn   = document.getElementById('clearBtn');
+const copyBtn    = document.getElementById('copyBtn');
+const chips      = document.querySelectorAll('.chip');
+
+// ── MathJax init ──────────────────────────────────────
 async function initMathJax() {
-    if (window.MathJax && window.MathJax.startup) {
+    if (window.MathJax?.startup) {
         await window.MathJax.startup.promise;
     }
 }
 
-// 수식을 렌더링하는 함수
-function renderMath() {
-    // 1. .textContent 대신 .value 사용
-    const source = document.getElementById("latexInput").value; 
-    
-    // 2. MathJax 수식 변환 (출력은 SVG 노드)
-    const svgNode = window.MathJax.tex2svg(source, { display: true });
-    
-    const appElement = document.querySelector('#app');
-    if (appElement) {
-        appElement.innerHTML = '';
-        appElement.appendChild(svgNode);
+// ── Render ────────────────────────────────────────────
+function renderMath(source) {
+    if (!source.trim()) {
+        appEl.innerHTML = '';
+        emptyState.style.display = 'flex';
+        return;
+    }
+
+    try {
+        const svgNode = window.MathJax.tex2svg(source, { display: true });
+
+        // Detect MathJax internal errors (merror)
+        const errorEl = svgNode.querySelector('merror, [data-mml-node="merror"]');
+        if (errorEl) throw new Error('LaTeX syntax error.');
+
+        emptyState.style.display = 'none';
+        appEl.innerHTML = '';
+        appEl.appendChild(svgNode);
+        appEl.classList.remove('rendered');
+        void appEl.offsetWidth; // reflow to restart animation
+        appEl.classList.add('rendered');
+
+    } catch (err) {
+        showError(err.message || 'An error occurred during rendering.');
     }
 }
 
-// 초기화 후 이벤트 리스너 등록 수행
+function showError(msg) {
+    emptyState.style.display = 'none';
+    appEl.innerHTML = `<div class="error-msg">⚠ ${msg}</div>`;
+}
+
+// ── Debounce (for live rendering) ─────────────────────
+function debounce(fn, delay) {
+    let timer;
+    return (...args) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn(...args), delay);
+    };
+}
+
+const liveRender = debounce(() => renderMath(latexInput.value), 400);
+
+// ── Example chips ─────────────────────────────────────
+chips.forEach(chip => {
+    chip.addEventListener('click', () => {
+        latexInput.value = chip.dataset.latex;
+        renderMath(latexInput.value);
+        latexInput.focus();
+    });
+});
+
+// ── Clear button ──────────────────────────────────────
+clearBtn.addEventListener('click', () => {
+    latexInput.value = '';
+    appEl.innerHTML = '';
+    emptyState.style.display = 'flex';
+    latexInput.focus();
+});
+
+// ── Copy SVG button ───────────────────────────────────
+copyBtn.addEventListener('click', async () => {
+    const svg = appEl.querySelector('svg');
+    if (!svg) return;
+
+    try {
+        await navigator.clipboard.writeText(svg.outerHTML);
+        const original = copyBtn.textContent;
+        copyBtn.textContent = 'Copied ✓';
+        copyBtn.style.color = '#4caf7d';
+        setTimeout(() => {
+            copyBtn.textContent = original;
+            copyBtn.style.color = '';
+        }, 1800);
+    } catch {
+        copyBtn.textContent = 'Copy failed';
+        setTimeout(() => { copyBtn.textContent = 'Copy SVG'; }, 1800);
+    }
+});
+
+// ── Main ──────────────────────────────────────────────
 async function main() {
     await initMathJax();
 
-    const latexInput = document.getElementById('latexInput');
-    
-    latexInput.addEventListener('keydown', function(event) {
-        // Ctrl + Enter 또는 Mac의 Cmd + Enter를 눌렀을 때
-        if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
-            event.preventDefault(); // 기본 줄바꿈 방지
-            renderMath(); // 수식 변환 실행
+    statusDot.classList.add('active');
+    statusText.textContent = 'Ready';
+
+    // Live rendering on input
+    latexInput.addEventListener('input', liveRender);
+
+    // Ctrl / Cmd + Enter → render immediately
+    latexInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            renderMath(latexInput.value);
         }
     });
 }

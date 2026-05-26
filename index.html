@@ -4,16 +4,398 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MathJax Preview</title>
+  <title>LaTeX Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --ink: #1a1814;
+      --paper: #f7f4ef;
+      --cream: #ede9e1;
+      --rust: #c44b2b;
+      --rust-light: #e8654a;
+      --muted: #8c8680;
+      --border: #d5d0c8;
+      --shadow: rgba(26, 24, 20, 0.08);
+      --radius: 4px;
+    }
+
+    html, body {
+      height: 100%;
+    }
+
+    body {
+      background-color: var(--paper);
+      color: var(--ink);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 400;
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 18px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--paper);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .logo {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1.4rem;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .logo em {
+      font-style: italic;
+      color: var(--rust);
+    }
+
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--border);
+      transition: background 0.3s ease;
+    }
+
+    .status-dot.active {
+      background: #4caf7d;
+      box-shadow: 0 0 0 3px rgba(76,175,125,0.2);
+    }
+
+    /* ── Main layout ── */
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      overflow: hidden;
+    }
+
+    /* ── Editor pane ── */
+    .pane {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .pane-header {
+      padding: 14px 24px 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--paper);
+    }
+
+    .pane-label {
+      font-size: 0.7rem;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .pane-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.75rem;
+      font-weight: 500;
+      padding: 5px 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--paper);
+      color: var(--ink);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      letter-spacing: 0.01em;
+    }
+
+    .btn:hover {
+      background: var(--cream);
+      border-color: var(--muted);
+    }
+
+    .btn-primary {
+      background: var(--rust);
+      border-color: var(--rust);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: var(--rust-light);
+      border-color: var(--rust-light);
+    }
+
+    .editor-pane {
+      border-right: 1px solid var(--border);
+    }
+
+    #latexInput {
+      flex: 1;
+      width: 100%;
+      border: none;
+      outline: none;
+      resize: none;
+      padding: 28px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.88rem;
+      line-height: 1.75;
+      background: var(--paper);
+      color: var(--ink);
+      caret-color: var(--rust);
+      min-height: calc(100vh - 130px);
+    }
+
+    #latexInput::placeholder {
+      color: var(--border);
+    }
+
+    /* ── Preview pane ── */
+    .preview-pane .pane-header {
+      background: var(--cream);
+      border-left: none;
+    }
+
+    #preview-content {
+      flex: 1;
+      padding: 40px 48px;
+      background: var(--cream);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: calc(100vh - 130px);
+    }
+
+    #app {
+      width: 100%;
+      max-width: 600px;
+    }
+
+    #app svg {
+      max-width: 100%;
+      height: auto;
+      display: block;
+      margin: 0 auto;
+    }
+
+    /* ── Empty / Error states ── */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: 12px;
+      color: var(--border);
+      text-align: center;
+      flex: 1;
+    }
+
+    .empty-icon {
+      font-family: 'DM Serif Display', serif;
+      font-style: italic;
+      font-size: 3.5rem;
+      color: var(--border);
+      line-height: 1;
+    }
+
+    .empty-state p {
+      font-size: 0.82rem;
+      letter-spacing: 0.03em;
+    }
+
+    .error-msg {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--rust);
+      background: rgba(196,75,43,0.06);
+      border: 1px solid rgba(196,75,43,0.2);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      width: 100%;
+      max-width: 600px;
+      line-height: 1.5;
+    }
+
+    /* ── Example chips ── */
+    .examples-bar {
+      border-top: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      background: var(--paper);
+      flex-wrap: wrap;
+    }
+
+    .examples-label {
+      font-size: 0.68rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-right: 4px;
+      white-space: nowrap;
+    }
+
+    .chip {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .chip:hover {
+      border-color: var(--rust);
+      color: var(--rust);
+      background: rgba(196,75,43,0.05);
+    }
+
+    /* ── Render flash animation ── */
+    @keyframes flash-in {
+      from { opacity: 0.4; transform: scale(0.98); }
+      to   { opacity: 1;   transform: scale(1); }
+    }
+
+    .rendered {
+      animation: flash-in 0.2s ease forwards;
+    }
+
+    /* ── Shortcuts hint ── */
+    .shortcut-hint {
+      font-size: 0.7rem;
+      color: var(--muted);
+      letter-spacing: 0.02em;
+    }
+
+    kbd {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem;
+      background: var(--cream);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 1px 5px;
+      color: var(--ink);
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 760px) {
+      main {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr 1fr;
+      }
+
+      .editor-pane {
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+      }
+
+      #latexInput {
+        min-height: 0;
+      }
+
+      #preview-content {
+        min-height: 0;
+        padding: 24px;
+      }
+    }
+  </style>
 </head>
 
 <body>
-  <div id="app"></div>
 
-  <form id="mathForm">
-    <textarea id="latexInput" rows="6"
-      style="width: 100%; max-width: 500px; font-family: monospace; padding: 10px;"></textarea>
-  </form>
+  <header>
+    <div class="logo">
+      La<em>TeX</em> Preview
+    </div>
+    <div class="status-pill">
+      <span class="status-dot" id="statusDot"></span>
+      <span id="statusText">Loading…</span>
+    </div>
+  </header>
+
+  <main>
+    <!-- ── Editor ── -->
+    <section class="pane editor-pane">
+      <div class="pane-header">
+        <span class="pane-label">LaTeX Input</span>
+        <div class="pane-actions">
+          <span class="shortcut-hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> to render</span>
+          <button class="btn" id="clearBtn">Clear</button>
+        </div>
+      </div>
+      <textarea id="latexInput" spellcheck="false"
+        placeholder="Type your LaTeX expression here&#10;&#10;e.g. \frac{-b \pm \sqrt{b^2-4ac}}{2a}"></textarea>
+      <div class="examples-bar">
+        <span class="examples-label">Examples</span>
+        <button class="chip" data-latex="\frac{-b \pm \sqrt{b^2-4ac}}{2a}">Quadratic Formula</button>
+        <button class="chip" data-latex="\int_{-\infty}^{\infty} e^{-x^2} dx = \sqrt{\pi}">Gaussian Integral</button>
+        <button class="chip" data-latex="e^{i\pi} + 1 = 0">Euler's Identity</button>
+        <button class="chip" data-latex="\sum_{n=1}^{\infty} \frac{1}{n^2} = \frac{\pi^2}{6}">Basel Problem</button>
+        <button class="chip" data-latex="\nabla \cdot \mathbf{E} = \frac{\rho}{\varepsilon_0}">Maxwell's Equation</button>
+      </div>
+    </section>
+
+    <!-- ── Preview ── -->
+    <section class="pane preview-pane">
+      <div class="pane-header" style="background: var(--cream);">
+        <span class="pane-label">Preview</span>
+        <button class="btn" id="copyBtn">Copy SVG</button>
+      </div>
+      <div id="preview-content">
+        <div id="app"></div>
+        <div class="empty-state" id="emptyState">
+          <div class="empty-icon">∑</div>
+          <p>Start typing to see your formula rendered live</p>
+        </div>
+      </div>
+    </section>
+  </main>
 
   <script type="module" src="script.js"></script>
 </body>
